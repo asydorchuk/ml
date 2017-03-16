@@ -182,11 +182,12 @@ class FullyConnectedNet(object):
     ############################################################################
     all_layers = [input_dim] + hidden_dims + [num_classes]
     for idx in xrange(1, len(all_layers)):
-      wparam = 'W{}'.format(idx)
-      bparam = 'b{}'.format(idx)
       dim1, dim2 = all_layers[idx - 1: idx + 1]
-      self.params[wparam] = weight_scale * np.random.randn(dim1, dim2)
-      self.params[bparam] = np.zeros(dim2)
+      self.params['W{}'.format(idx)] = weight_scale * np.random.randn(dim1, dim2)
+      self.params['b{}'.format(idx)] = np.zeros(dim2)
+      if self.use_batchnorm and (idx < len(all_layers) - 1):
+        self.params['gamma{}'.format(idx)] = np.ones(dim2)
+        self.params['beta{}'.format(idx)] = np.zeros(dim2)
     ############################################################################
     #                             END OF YOUR CODE                             #
     ############################################################################
@@ -226,7 +227,7 @@ class FullyConnectedNet(object):
     # Set train/test mode for batchnorm params and dropout param since they
     # behave differently during training and testing.
     if self.dropout_param is not None:
-      self.dropout_param['mode'] = mode   
+      self.dropout_param['mode'] = mode
     if self.use_batchnorm:
       for bn_param in self.bn_params:
         bn_param[mode] = mode
@@ -247,14 +248,18 @@ class FullyConnectedNet(object):
     cache = {}
     prevX = X
     for idx in xrange(1, self.num_layers + 1):
-      wparam = 'W{}'.format(idx)
-      bparam = 'b{}'.format(idx)
       xparam = 'X{}'.format(idx)
       cparam = 'C{}'.format(idx)
-      W = self.params[wparam]
-      b = self.params[bparam]
+      W = self.params['W{}'.format(idx)]
+      b = self.params['b{}'.format(idx)]
       if idx < self.num_layers:
-        cache[xparam], cache[cparam] = affine_relu_forward(prevX, W, b)
+        if self.use_batchnorm:
+          gamma = self.params['gamma{}'.format(idx)]
+          beta = self.params['beta{}'.format(idx)]
+          bn_param = self.bn_params[idx - 1]
+          cache[xparam], cache[cparam] = affine_batch_relu_forward(prevX, W, b, gamma, beta, bn_param)
+        else:
+          cache[xparam], cache[cparam] = affine_relu_forward(prevX, W, b)
         prevX = cache[xparam]
       else:
         cache[xparam], cache[cparam] = affine_forward(prevX, W, b)
@@ -266,15 +271,6 @@ class FullyConnectedNet(object):
     # If test mode return early
     if mode == 'test':
       return scores
-
-    #   loss, dX2 = softmax_loss(X2, y)
-    # loss += 0.5 * self.reg * (np.sum(W1 * W1) + np.sum(W2 * W2))
-    # dX1, dW2, db2 = affine_backward(dX2, cache2)
-    # dX, dW1, db1 = affine_relu_backward(dX1, cache1)
-    # grads['W1'] = dW1 + self.reg * W1
-    # grads['b1'] = db1
-    # grads['W2'] = dW2 + self.reg * W2
-    # grads['b2'] = db2
 
     loss, grads = 0.0, {}
     ############################################################################
@@ -298,7 +294,13 @@ class FullyConnectedNet(object):
       if idx == self.num_layers:
         dL, dW, db = affine_backward(dL, C)
       else:
-        dL, dW, db = affine_relu_backward(dL, C)
+        if self.use_batchnorm:
+          gamma = self.params['gamma{}'.format(idx)]
+          dL, dgamma, dbeta, dW, db = affine_batch_relu_backward(dL, C)
+          grads['gamma{}'.format(idx)] = dgamma
+          grads['beta{}'.format(idx)] = dbeta
+        else:
+          dL, dW, db = affine_relu_backward(dL, C)
       grads['W{}'.format(idx)] = dW + self.reg * W
       grads['b{}'.format(idx)] = db
     ############################################################################
