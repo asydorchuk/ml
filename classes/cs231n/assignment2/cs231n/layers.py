@@ -601,7 +601,7 @@ def softmax_loss(x, y):
   - loss: Scalar giving the loss
   - dx: Gradient of the loss with respect to x
   """
-  probs = np.exp(x - np.max(x, axis=1, keepdims=True))
+  probs = np.maximum(np.exp(x - np.max(x, axis=1, keepdims=True)), 1e-10)
   probs /= np.sum(probs, axis=1, keepdims=True)
   N = x.shape[0]
   loss = -np.sum(np.log(probs[np.arange(N), y])) / N
