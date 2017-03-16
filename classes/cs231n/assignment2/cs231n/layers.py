@@ -105,6 +105,31 @@ def relu_backward(dout, cache):
   return dx
 
 
+def mean_forward(x):
+  out, cache = None, None
+  out = x - x.mean(axis=0)
+  return out, cache
+
+
+def mean_backward(dout, cache):
+  dx = dout - dout.mean(axis=0)
+  return dx
+
+
+def var_forward(x, eps):
+  out, cache = None, None
+  sdev = np.sqrt(x.var(axis=0) + eps)
+  cache = x, eps, sdev
+  out = x / sdev
+  return out, cache
+
+
+def var_backward(dout, cache):
+  x, eps, sdev = cache
+  dx = dout / sdev - x / np.power(sdev, 3) * ((x * dout).sum(axis=0)) / x.shape[0]
+  return dx
+
+
 def batchnorm_forward(x, gamma, beta, bn_param):
   """
   Forward pass for batch normalization.
@@ -151,7 +176,7 @@ def batchnorm_forward(x, gamma, beta, bn_param):
   running_mean = bn_param.get('running_mean', np.zeros(D, dtype=x.dtype))
   running_var = bn_param.get('running_var', np.zeros(D, dtype=x.dtype))
 
-  out, cache = None, None
+  out, cache = None, {}
   if mode == 'train':
     #############################################################################
     # TODO: Implement the training-time forward pass for batch normalization.   #
@@ -166,7 +191,15 @@ def batchnorm_forward(x, gamma, beta, bn_param):
     # the momentum variable to update the running mean and running variance,    #
     # storing your result in the running_mean and running_var variables.        #
     #############################################################################
-    pass
+    sample_mean = x.mean(axis=0)
+    xmean = x - sample_mean
+    sample_var = xmean.var(axis=0)
+    xvar = xmean / np.sqrt(sample_var + eps)
+    xnorm = xvar
+    cache = x, xmean, xvar, gamma, beta, sample_mean, sample_var, eps
+    out = xnorm * gamma + beta
+    running_mean = momentum * running_mean + (1 - momentum) * sample_mean
+    running_var = momentum * running_var + (1 - momentum) * sample_var
     #############################################################################
     #                             END OF YOUR CODE                              #
     #############################################################################
@@ -177,7 +210,8 @@ def batchnorm_forward(x, gamma, beta, bn_param):
     # and shift the normalized data using gamma and beta. Store the result in   #
     # the out variable.                                                         #
     #############################################################################
-    pass
+    out = (x - running_mean) / np.sqrt(running_var + eps)
+    out = out * gamma + beta
     #############################################################################
     #                             END OF YOUR CODE                              #
     #############################################################################
@@ -213,7 +247,21 @@ def batchnorm_backward(dout, cache):
   # TODO: Implement the backward pass for batch normalization. Store the      #
   # results in the dx, dgamma, and dbeta variables.                           #
   #############################################################################
-  pass
+  x, xmean, xvar, gamma, beta, sample_mean, sample_var, eps = cache
+  xnorm = xvar
+  dbeta = dout.sum(axis=0)
+  dgamma = (dout * xnorm).sum(axis=0)
+
+  dxvar = dout * gamma
+  denom = 1.0 / np.sqrt(sample_var + eps)
+  dxmean = dxvar * denom - xmean * np.power(denom, 3) * ((xmean * dxvar).sum(axis=0)) / x.shape[0]
+  dx = dxmean - dxmean.mean(axis=0)
+
+  # dxnorm = dout * gamma
+  # dsample_var = np.sum(-0.5 * dxnorm * xnorm / (sample_var + eps), axis =0)
+  # dsample_mean = np.sum(-1 / np.sqrt(sample_var+eps)* dxnorm, axis = 0)
+  # n = x.shape[0]
+  # dx = 1 / np.sqrt(sample_var + eps) * dxnorm + dsample_var * 2.0 / n * (x - sample_mean) + 1.0 / n * dsample_mean
   #############################################################################
   #                             END OF YOUR CODE                              #
   #############################################################################
@@ -243,7 +291,15 @@ def batchnorm_backward_alt(dout, cache):
   # should be able to compute gradients with respect to the inputs in a       #
   # single statement; our implementation fits on a single 80-character line.  #
   #############################################################################
-  pass
+  x, xmean, xvar, gamma, beta, sample_mean, sample_var, eps = cache
+  xnorm = xvar
+  dbeta = dout.sum(axis=0)
+  dgamma = (dout * xnorm).sum(axis=0)
+
+  dxvar = dout * gamma
+  denom = 1.0 / np.sqrt(sample_var + eps)
+  dxmean = dxvar * denom - xmean * np.power(denom, 3) * ((xmean * dxvar).sum(axis=0)) / x.shape[0]
+  dx = dxmean - dxmean.mean(axis=0)
   #############################################################################
   #                             END OF YOUR CODE                              #
   #############################################################################
