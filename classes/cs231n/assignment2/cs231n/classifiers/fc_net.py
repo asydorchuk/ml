@@ -250,6 +250,7 @@ class FullyConnectedNet(object):
     for idx in xrange(1, self.num_layers + 1):
       xparam = 'X{}'.format(idx)
       cparam = 'C{}'.format(idx)
+      dparam = 'D{}'.format(idx)
       W = self.params['W{}'.format(idx)]
       b = self.params['b{}'.format(idx)]
       if idx < self.num_layers:
@@ -260,6 +261,9 @@ class FullyConnectedNet(object):
           cache[xparam], cache[cparam] = affine_batch_relu_forward(prevX, W, b, gamma, beta, bn_param)
         else:
           cache[xparam], cache[cparam] = affine_relu_forward(prevX, W, b)
+
+        if self.use_dropout:
+          cache[xparam], cache[dparam] = dropout_forward(cache[xparam], self.dropout_param)
         prevX = cache[xparam]
       else:
         cache[xparam], cache[cparam] = affine_forward(prevX, W, b)
@@ -294,6 +298,10 @@ class FullyConnectedNet(object):
       if idx == self.num_layers:
         dL, dW, db = affine_backward(dL, C)
       else:
+        if self.use_dropout:
+          D = cache['D{}'.format(idx)]
+          dL = dropout_backward(dL, D)
+
         if self.use_batchnorm:
           gamma = self.params['gamma{}'.format(idx)]
           dL, dgamma, dbeta, dW, db = affine_batch_relu_backward(dL, C)
