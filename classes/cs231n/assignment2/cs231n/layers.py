@@ -340,7 +340,7 @@ def dropout_forward(x, dropout_param):
     ###########################################################################
     mask = np.random.rand(*x.shape)
     mask[mask <= p] = 0.0
-    mask[mask > p] = 1.0 / p
+    mask[mask > p] = 1.0 / (1.0 - p)
     out = x * mask
     ###########################################################################
     #                            END OF YOUR CODE                             #
