@@ -414,7 +414,7 @@ def conv_forward_naive(x, w, b, conv_param):
   F, C, HH, WW = w.shape
   HN = 1 + (H + 2 * pad - HH) / stride
   WN = 1 + (W + 2 * pad - WW) / stride
-  out = np.empty((N, F, HN, WN))
+  out = np.zeros((N, F, HN, WN))
   cache = (x, w, b, conv_param)
   #############################################################################
   # TODO: Implement the convolutional forward pass.                           #
@@ -497,11 +497,24 @@ def max_pool_forward_naive(x, pool_param):
   - out: Output data
   - cache: (x, pool_param)
   """
-  out = None
+  ph = pool_param['pool_height']
+  pw = pool_param['pool_width']
+  stride = pool_param['stride']
+  N, C, H, W = x.shape
+
+  nh = (H - ph) / stride + 1
+  nw = (W - pw) / stride + 1
+  out = np.zeros((N, C, nh, nw))
   #############################################################################
   # TODO: Implement the max pooling forward pass                              #
   #############################################################################
-  pass
+  for n in xrange(N):
+    for c in xrange(C):
+      for h in xrange(nh):
+        for w in xrange(nw):
+          sh = h * stride
+          sw = w * stride
+          out[n, c, h, w] = np.max(x[n, c, sh:sh+stride, sw:sw+stride])
   #############################################################################
   #                             END OF YOUR CODE                              #
   #############################################################################
@@ -520,11 +533,30 @@ def max_pool_backward_naive(dout, cache):
   Returns:
   - dx: Gradient with respect to x
   """
-  dx = None
+  x, pool_param = cache
+  ph = pool_param['pool_height']
+  pw = pool_param['pool_width']
+  stride = pool_param['stride']
+  N, C, H, W = x.shape
+
+  nh = (H - ph) / stride + 1
+  nw = (W - pw) / stride + 1
+  dx = np.zeros(x.shape)
   #############################################################################
   # TODO: Implement the max pooling backward pass                             #
   #############################################################################
-  pass
+  for n in xrange(N):
+    for c in xrange(C):
+      for h in xrange(nh):
+        for w in xrange(nw):
+          sh = h * stride
+          sw = w * stride
+          region = x[n, c, sh:sh+stride, sw:sw+stride]
+          midx = np.unravel_index(region.argmax(), region.shape)
+          if stride > 1:
+            dx[n, c, sh + midx[0], sw + midx[1]] += dout[n, c, h, w]
+          else:
+            dx[n, c, sh, sw] += dout[n, c, h, w]
   #############################################################################
   #                             END OF YOUR CODE                              #
   #############################################################################
